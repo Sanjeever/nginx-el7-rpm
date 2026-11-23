@@ -26,8 +26,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=$(curl -fsSL --retry 3 --connect-timeout 10 --max-time 60 \
-            https://nginx.org/en/download.html | perl -0777 -ne '
-              my ($mainline) = /<h4\b[^>]*>\s*Mainline version\s*<\/h4>(.*?)(?:<h4\b|\z)/si;
+            https://nginx.org/en/download.html | perl -0777 -e '
+              my $html = <STDIN> // "";
+              my ($mainline) = $html =~ /<h4\b[^>]*>\s*Mainline version\s*<\/h4>(.*?)(?:<h4\b|\z)/si;
               my %versions = map { $_ => 1 } ($mainline // "") =~
                 m{href=["\x27](?:https://nginx\.org)?/download/nginx-([0-9]+\.[0-9]+\.[0-9]+)\.tar\.gz["\x27]}ig;
               die "Expected exactly one Nginx Mainline version\n" unless keys %versions == 1;
