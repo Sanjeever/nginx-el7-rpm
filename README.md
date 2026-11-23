@@ -7,3 +7,5 @@
 3. 构建完成后，在运行详情的 **Artifacts** 下载 `nginx-<版本>-el7-x86_64` 并解压。
 
 产物包含主 RPM、SRPM、`SHA256SUMS` 和 `build.log`。在目标机上可先用 `sha256sum -c SHA256SUMS` 核验，再安装主 RPM。生成的 RPM 为未签名的自建包。构建使用 CentOS 7 的系统 OpenSSL，HTTPS 支持 TLS 1.2，未启用 HTTP/3。
+
+全新安装后用 `systemctl start nginx` 启动。若启用 SELinux，并且在首次启动前执行过 `nginx -t`，启动时可能出现 `/run/nginx.pid` 的权限错误。用 `restorecon -v /run/nginx.pid` 恢复文件标签，再启动服务。
