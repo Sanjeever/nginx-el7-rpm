@@ -1,11 +1,16 @@
 # Nginx EL7 RPM
 
-在 CentOS 7.9 用户空间构建 Nginx `x86_64` RPM。源码取自 nginx.org，打包沿用官方 `nginx-1.27.0-2.el7.ngx.src.rpm` 中的 spec、systemd 服务和默认配置。
+[简体中文](README.zh-CN.md)
 
-1. 打开 [Build EL7 RPM](https://github.com/Sanjeever/nginx-el7-rpm/actions/workflows/build-el7-rpm.yml)，点击 **Run workflow**。
-2. 输入 Nginx 版本号，例如 `1.31.9`。
-3. 构建完成后，在运行详情的 **Artifacts** 下载 `nginx-<版本>-el7-x86_64` 并解压。
+Unofficial `x86_64` RPMs for CentOS 7.9, built from signed nginx.org source tarballs using the spec, systemd service, and defaults from the official `nginx-1.27.0-2.el7.ngx.src.rpm`.
 
-产物包含主 RPM、SRPM、`SHA256SUMS` 和 `build.log`。在目标机上可先用 `sha256sum -c SHA256SUMS` 核验，再安装主 RPM。生成的 RPM 为未签名的自建包。构建使用 CentOS 7 的系统 OpenSSL，HTTPS 支持 TLS 1.2，未启用 HTTP/3。
+## Download and install
 
-全新安装后用 `systemctl start nginx` 启动。若启用 SELinux，并且在首次启动前执行过 `nginx -t`，启动时可能出现 `/run/nginx.pid` 的权限错误。用 `restorecon -v /run/nginx.pid` 恢复文件标签，再启动服务。
+Download the binary RPM, source RPM, and `SHA256SUMS` from [Releases](https://github.com/Sanjeever/nginx-el7-rpm/releases). With all three files in the same directory, verify them using `sha256sum -c SHA256SUMS`, then install the `x86_64.rpm` package. The built RPMs are unsigned. The system OpenSSL on CentOS 7 supports TLS 1.2, and these builds omit HTTP/3.
+
+On a fresh installation, start the service with `systemctl start nginx`. Under SELinux, running `nginx -t` before the first start can leave `/run/nginx.pid` with the wrong label. If the service fails with a permission error on that file, run `restorecon -v /run/nginx.pid` and start the service again.
+
+## Build and release
+
+- [Publish Nginx Mainline RPM](https://github.com/Sanjeever/nginx-el7-rpm/actions/workflows/publish-mainline.yml) checks the [official Mainline version](https://nginx.org/en/download.html) every six hours. It builds and tests an unpublished version before creating a Release tagged `v<version>`. **Run workflow** on `main` performs the same check on demand.
+- [Build EL7 RPM](https://github.com/Sanjeever/nginx-el7-rpm/actions/workflows/build-el7-rpm.yml) builds the version you enter, such as `1.31.9`. Download the RPMs, checksums, and build log from **Artifacts** on the run page.

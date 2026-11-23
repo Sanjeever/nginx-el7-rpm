@@ -5,7 +5,12 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Nginx 版本号（例如 1.31.9）
+        description: Nginx version (for example, 1.31.9)
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      version:
         required: true
         type: string
 

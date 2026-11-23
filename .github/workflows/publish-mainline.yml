@@ -1,0 +1,106 @@
+name: Publish Nginx Mainline RPM
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-mainline
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.upstream.outputs.version }}
+    steps:
+      - name: Check the upstream Mainline version
+        id: upstream
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(curl -fsSL --retry 3 --connect-timeout 10 --max-time 60 \
+            https://nginx.org/en/download.html | perl -0777 -ne '
+              my ($mainline) = /<h4\b[^>]*>\s*Mainline version\s*<\/h4>(.*?)(?:<h4\b|\z)/si;
+              my %versions = map { $_ => 1 } ($mainline // "") =~
+                m{href=["\x27](?:https://nginx\.org)?/download/nginx-([0-9]+\.[0-9]+\.[0-9]+)\.tar\.gz["\x27]}ig;
+              die "Expected exactly one Nginx Mainline version\n" unless keys %versions == 1;
+              print((keys %versions)[0], "\n");
+            ')
+
+          tag="v$version"
+          published_tags=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.draft == false) | .tag_name')
+          if grep -Fxq -- "$tag" <<< "$published_tags"; then
+            printf 'Release %s is already published.\n' "$tag"
+            exit 0
+          fi
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: check
+    if: needs.check.outputs.version != ''
+    uses: ./.github/workflows/build-el7-rpm.yml
+    with:
+      version: ${{ needs.check.outputs.version }}
+
+  publish:
+    needs: [check, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      NGINX_VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - name: Download verified RPMs
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: nginx-${{ env.NGINX_VERSION }}-el7-x86_64
+          path: release-assets
+
+      - name: Publish the release
+        shell: bash
+        working-directory: release-assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          version="$NGINX_VERSION"
+          tag="v$version"
+          package="nginx-$version-1.el7.x86_64.rpm"
+          srpm="nginx-$version-1.el7.src.rpm"
+          sha256sum --check SHA256SUMS
+
+          draft=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$tag\") | .draft")
+          case "$draft" in
+            false)
+              printf 'Release %s is already published.\n' "$tag"
+              exit 0
+              ;;
+            true)
+              printf 'Resuming draft release %s.\n' "$tag"
+              ;;
+            '')
+              gh release create "$tag" --draft --target "$GITHUB_SHA" \
+                --title "Nginx $version for EL7" \
+                --notes-file - <<EOF
+          Unofficial x86_64 RPMs for CentOS 7.9, built from the [upstream Nginx $version release](https://github.com/nginx/nginx/releases/tag/release-$version).
+
+          Verify the RPM and SRPM with SHA256SUMS before installing. The packages are unsigned.
+          EOF
+              ;;
+            *)
+              printf 'Unexpected release state for %s.\n' "$tag" >&2
+              exit 1
+              ;;
+          esac
+
+          gh release upload "$tag" "$package" "$srpm" SHA256SUMS --clobber
+          gh release edit "$tag" --target "$GITHUB_SHA" --draft=false --latest

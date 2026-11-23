@@ -4,7 +4,7 @@ export LC_ALL=C
 
 version=${1:-}
 if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    printf '请输入形如 1.31.9 的 Nginx 版本号。\n' >&2
+    printf 'Enter an Nginx version such as 1.31.9.\n' >&2
     exit 2
 fi
 
@@ -33,7 +33,7 @@ rpm --dbpath "$work/rpmdb" --initdb
 rpm --dbpath "$work/rpmdb" --import "$work/nginx_signing.key"
 rpm --dbpath "$work/rpmdb" -Kv "$work/$template" | tee "$work/template-signature.log"
 if ! grep -Eq 'Signature, key ID [[:xdigit:]]+: OK$' "$work/template-signature.log"; then
-    printf 'EL7 模板缺少可验证的 RPM 签名。\n' >&2
+    printf 'The EL7 template has no verifiable RPM signature.\n' >&2
     exit 1
 fi
 rpm --dbpath "$work/rpmdb" -ivh --define "_topdir $topdir" "$work/$template"
@@ -70,7 +70,7 @@ EOF
 
 nginx -c "$smoke_dir/nginx.conf"
 http_code=$(curl -fsS --max-time 10 -o response.html -w '%{http_code}' http://127.0.0.1:18080/)
-printf '回环 HTTP 状态码 %s\n' "$http_code"
+printf 'Loopback HTTP status: %s\n' "$http_code"
 test "$http_code" = 200
 cmp response.html /usr/share/nginx/html/index.html
 nginx -s quit -c "$smoke_dir/nginx.conf"
